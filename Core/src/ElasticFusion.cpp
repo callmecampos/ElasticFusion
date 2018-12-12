@@ -119,7 +119,7 @@ ElasticFusion::~ElasticFusion()
         }
         else
         {
-            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) / 1000000.0 << " ";
+            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) << " ";
         }
 
         Eigen::Vector3f trans = poseGraph.at(i).second.topRightCorner(3, 1);
@@ -517,6 +517,7 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
 
             if(covOk && modelToModel.lastICPCount > icpCountThresh && modelToModel.lastICPError < icpErrThresh)
             {
+                // read from IMU rotation, use as initial guess to ICP
                 resize.vertex(indexMap.vertexTex(), consBuff);
                 resize.time(indexMap.oldTimeTex(), timesBuff);
 
@@ -565,6 +566,9 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                     }
                 }
             }
+        } else if (modelToModel.lastICPError >= icpErrThresh) {
+            std::cout << modelToModel.lastICPError << '\n';
+            // M = M*deltaIMU
         }
 
         if(!rgbOnly && trackingOk && !lost)

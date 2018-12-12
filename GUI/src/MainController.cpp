@@ -266,11 +266,16 @@ void MainController::run()
 
                 Eigen::Matrix4f * currentPose = 0;
 
+                const Eigen::IOFormat HeavyFmt(FullPrecision, 0, ", ", ";\n", "[", "]", "[", "]");
+                std::string sep = "\n----------------------------------------\n";
+
                 if(groundTruthOdometry)
                 {
                     currentPose = new Eigen::Matrix4f;
                     currentPose->setIdentity();
                     *currentPose = groundTruthOdometry->getTransformation(logReader->timestamp);
+                    std::cout << logReader->timestamp << ": ";
+                    std::cout << currentPose->format(HeavyFmt) << sep;
                 }
 
                 eFusion->processFrame(logReader->rgb, logReader->depth, logReader->timestamp, currentPose, weightMultiplier);
