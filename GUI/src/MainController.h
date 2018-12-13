@@ -71,7 +71,9 @@ class MainController
              fastOdom,
              so3,
              rewind,
-             frameToFrameRGB;
+             frameToFrameRGB,
+             bootstrap,
+             imu;
 
         int framesToSkip;
         bool streaming;

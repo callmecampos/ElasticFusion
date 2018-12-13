@@ -86,6 +86,7 @@ The GUI (*ElasticFusion*) can take a bunch of parameters when launching it from 
 * *-cal <calibration>* : Loads a camera calibration file specified as *fx fy cx cy*.
 * *-l <logfile>* : Processes the specified .klg log file.
 * *-p <poses>* : Loads ground truth poses to use instead of estimated pose.
+* *-b <bootstrap>* : When loading ground truth poses, use as initial seed for ICP.
 * *-c <confidence>* : Surfel confidence threshold (default *10*).
 * *-d <depth>* : Cutoff distance for depth processing (default *3*m).
 * *-i <icp>* : Relative ICP/RGB tracking weight (default *10*).
@@ -97,6 +98,7 @@ The GUI (*ElasticFusion*) can take a bunch of parameters when launching it from 
 * *-t <time>* : Time window length (default *200*).
 * *-s <skip>* : Frames to skip at start of log.
 * *-e <end>* : Cut off frame of log.
+* *-v <verbose>* : Print out debugging information to console.
 * *-f* : Flip RGB/BGR.
 * *-icl* : Enable this if using the [ICL-NUIM](http://www.doc.ic.ac.uk/~ahanda/VaFRIC/iclnuim.html) dataset (flips normals to account for negative focal length on that data).
 * *-o* : Open loop mode.

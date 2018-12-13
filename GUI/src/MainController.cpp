@@ -26,7 +26,9 @@ MainController::MainController(int argc, char * argv[])
    logReader(0),
    framesToSkip(0),
    resetButton(false),
-   resizeStream(0)
+   resizeStream(0),
+   bootstrap(false),
+   imu(false)
 {
     std::string empty;
     iclnuim = Parse::get().arg(argc, argv, "-icl", empty) > -1;
@@ -62,7 +64,7 @@ MainController::MainController(int argc, char * argv[])
         if(!good)
         {
           delete logReader;
-          logReader = new LiveLogReader(logFile, flipColors, LiveLogReader::CameraType::RealSense);
+          logReader = new LiveLogReader(logFile, flipColors, LiveLogReader::CameraType::RealSense); // TODO: update log reader code to run with librealsense2 and lighthouse live
 
           good = ((LiveLogReader *)logReader)->cam->ok();
         }
@@ -72,6 +74,10 @@ MainController::MainController(int argc, char * argv[])
     if(Parse::get().arg(argc, argv, "-p", poseFile) > 0)
     {
         groundTruthOdometry = new GroundTruthOdometry(poseFile);
+        bootstrap = Parse::get().arg(argc, argv, "-b", empty) > -1;
+        if (bootstrap) {
+            imu = Parse::get().arg(argc, argv, "-imu", empty) > -1;
+        }
     }
 
     confidence = 10.0f;
@@ -266,19 +272,18 @@ void MainController::run()
 
                 Eigen::Matrix4f * currentPose = 0;
 
-                const Eigen::IOFormat HeavyFmt(FullPrecision, 0, ", ", ";\n", "[", "]", "[", "]");
-                std::string sep = "\n----------------------------------------\n";
-
                 if(groundTruthOdometry)
                 {
                     currentPose = new Eigen::Matrix4f;
                     currentPose->setIdentity();
                     *currentPose = groundTruthOdometry->getTransformation(logReader->timestamp);
+                    const Eigen::IOFormat HeavyFmt(-2, 0, ", ", ";\n", "[", "]", "[", "]");
+                    std::string sep = "\n----------------------------------------\n";
                     std::cout << logReader->timestamp << ": ";
                     std::cout << currentPose->format(HeavyFmt) << sep;
                 }
 
-                eFusion->processFrame(logReader->rgb, logReader->depth, logReader->timestamp, currentPose, weightMultiplier);
+                eFusion->processFrame(logReader->rgb, logReader->depth, logReader->timestamp, currentPose, weightMultiplier, bootstrap, imu);
 
                 if(currentPose)
                 {

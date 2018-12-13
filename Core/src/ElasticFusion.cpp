@@ -119,7 +119,7 @@ ElasticFusion::~ElasticFusion()
         }
         else
         {
-            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) << " ";
+            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) / 1000000 << " ";
         }
 
         Eigen::Vector3f trans = poseGraph.at(i).second.topRightCorner(3, 1);
@@ -258,11 +258,12 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                                  const int64_t & timestamp,
                                  const Eigen::Matrix4f * inPose,
                                  const float weightMultiplier,
-                                 const bool bootstrap)
+                                 const bool bootstrap,
+                                 const bool imu)
 {
     TICK("Run");
 
-    textures[GPUTexture::DEPTH_RAW]->texture->Upload(depth, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_SHORT);
+    textures[GPUTexture::DEPTH_RAW]->texture->Upload(depth, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_SHORT); // TODO: live Deep Depth Completion
     textures[GPUTexture::RGB]->texture->Upload(rgb, GL_RGB, GL_UNSIGNED_BYTE);
 
     TICK("Preprocess");
@@ -305,14 +306,33 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
             frameToModel.initRGB(textures[GPUTexture::RGB]);
             TOCK("odomInit");
 
+            Eigen::Vector3f trans = currPose.topRightCorner(3, 1);
+            Eigen::Matrix<float, 3, 3, Eigen::RowMajor> rot = currPose.topLeftCorner(3, 3);
+
             if(bootstrap)
             {
                 assert(inPose);
-                currPose = currPose * (*inPose);
-            }
+                if (imu) {
+                  Eigen::Matrix4f rotationSE3(4,4);
+                  rotationSE3 << (*inPose);
+                  (rotationSE3)(3, 0) = 0;
+                  (rotationSE3)(3, 1) = 0;
+                  (rotationSE3)(3, 2) = 0;
+                  (rotationSE3)(3, 3) = 1;
+                  currPose = rotationSE3;
+                } else {
+                  Eigen::Matrix4f transSE3(4,4);
+                  transSE3 << (*inPose);
+                  (transSE3)(0, 0) = 1; (transSE3)(1, 0) = 0; (transSE3)(2, 0) = 0;
+                  (transSE3)(0, 1) = 0; (transSE3)(1, 1) = 1; (transSE3)(2, 1) = 0;
+                  (transSE3)(0, 2) = 0; (transSE3)(1, 2) = 0; (transSE3)(2, 2) = 1;
+                  currPose = transSE3;
+                }
 
-            Eigen::Vector3f trans = currPose.topRightCorner(3, 1);
-            Eigen::Matrix<float, 3, 3, Eigen::RowMajor> rot = currPose.topLeftCorner(3, 3);
+                Eigen::Matrix4f diffPose = inPose->inverse() * currPose;
+
+                currPose = currPose * diffPose;
+            }
 
             TICK("odom");
             frameToModel.getIncrementalTransformation(trans,
@@ -517,7 +537,6 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
 
             if(covOk && modelToModel.lastICPCount > icpCountThresh && modelToModel.lastICPError < icpErrThresh)
             {
-                // read from IMU rotation, use as initial guess to ICP
                 resize.vertex(indexMap.vertexTex(), consBuff);
                 resize.time(indexMap.oldTimeTex(), timesBuff);
 
@@ -566,9 +585,6 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                     }
                 }
             }
-        } else if (modelToModel.lastICPError >= icpErrThresh) {
-            std::cout << modelToModel.lastICPError << '\n';
-            // M = M*deltaIMU
         }
 
         if(!rgbOnly && trackingOk && !lost)
