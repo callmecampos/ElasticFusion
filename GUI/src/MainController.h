@@ -73,7 +73,8 @@ class MainController
              rewind,
              frameToFrameRGB,
              bootstrap,
-             imu;
+             imu,
+             lighthouse;
 
         int framesToSkip;
         bool streaming;

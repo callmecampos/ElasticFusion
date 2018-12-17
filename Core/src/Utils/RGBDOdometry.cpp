@@ -310,6 +310,7 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
 
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> lastResultR = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
 
+        bool converged = false; int diverged = 0;
         for(int i = 0; i < 10; i++)
         {
             Eigen::Matrix<float, 3, 3, Eigen::RowMajor> jtj;
@@ -351,10 +352,14 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
             //Converged
             if(lastSO3Error < lastError && lastCount == lastSO3Count)
             {
-                break;
+                converged = true;
+                std::cout << "SO(3) pre-alignment converged at " << i << " iterations. Diverged " << diverged << " times.\n";
+                std::cout << "Final SO(3) error: " << lastSO3Error << "\n";
+                break; // TODO: return number of steps for SO(3) prealignment!!!
             }
             else if(lastSO3Error > lastError + 0.001) //Diverging
             {
+                diverged += 1;
                 lastSO3Error = lastError;
                 lastSO3Count = lastCount;
                 resultR = lastResultR;
@@ -378,6 +383,10 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
                     resultR(x, y) = R_lr(x, y);
                 }
             }
+        }
+
+        if (!converged) {
+            std::cout << "SO(3) pre-alignment did not converge, diverged " << diverged << " times.\n";
         }
     }
 
@@ -463,6 +472,8 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
 
             if(rgbOnly && rgbError > lastRGBError)
             {
+                std::cout << "[RGB-ONLY] RGB-tracking converged at " << j << " iterations.\n";
+                std::cout << "Final RGB error: " << rgbError << "\n";
                 break;
             }
 
@@ -546,6 +557,7 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
 
             if(icp && rgb)
             {
+                // TODO: track ICP error convergence over time (write to file?), return final error
                 double w = icpWeight;
                 lastA = dA_rgbd + w * w * dA_icp;
                 lastb = db_rgbd + w * db_icp;

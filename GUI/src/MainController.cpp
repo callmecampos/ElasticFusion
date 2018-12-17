@@ -28,7 +28,8 @@ MainController::MainController(int argc, char * argv[])
    resetButton(false),
    resizeStream(0),
    bootstrap(false),
-   imu(false)
+   imu(false),
+   lighthouse(false)
 {
     std::string empty;
     iclnuim = Parse::get().arg(argc, argv, "-icl", empty) > -1;
@@ -77,6 +78,7 @@ MainController::MainController(int argc, char * argv[])
         bootstrap = Parse::get().arg(argc, argv, "-b", empty) > -1;
         if (bootstrap) {
             imu = Parse::get().arg(argc, argv, "-imu", empty) > -1;
+            lighthouse = Parse::get().arg(argc, argv, "-lh", empty) > -1;
         }
     }
 
@@ -277,13 +279,9 @@ void MainController::run()
                     currentPose = new Eigen::Matrix4f;
                     currentPose->setIdentity();
                     *currentPose = groundTruthOdometry->getTransformation(logReader->timestamp);
-                    const Eigen::IOFormat HeavyFmt(-2, 0, ", ", ";\n", "[", "]", "[", "]");
-                    std::string sep = "\n----------------------------------------\n";
-                    std::cout << logReader->timestamp << ": ";
-                    std::cout << currentPose->format(HeavyFmt) << sep;
                 }
 
-                eFusion->processFrame(logReader->rgb, logReader->depth, logReader->timestamp, currentPose, weightMultiplier, bootstrap, imu);
+                eFusion->processFrame(logReader->rgb, logReader->depth, logReader->timestamp, currentPose, weightMultiplier, bootstrap, imu, lighthouse);
 
                 if(currentPose)
                 {

@@ -74,7 +74,8 @@ class ElasticFusion
                           const Eigen::Matrix4f * inPose = 0,
                           const float weightMultiplier = 1.f,
                           const bool bootstrap = false,
-                          const bool imu = false);
+                          const bool imu = false,
+                          const bool lighthouse = false);
 
         /**
          * Predicts the current view of the scene, updates the [vertex/normal/image]Tex() members

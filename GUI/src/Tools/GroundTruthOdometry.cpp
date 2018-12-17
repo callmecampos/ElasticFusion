@@ -34,21 +34,19 @@ void GroundTruthOdometry::loadTrajectory(const std::string & filename)
     std::ifstream file;
     std::string line;
     file.open(filename.c_str());
+    float x0, y0, z0, qx0, qy0, qz0, qw0; int i = 0;
     while (!file.eof())
     {
         unsigned long long int utime;
         float x, y, z, qx, qy, qz, qw; double ftime;
         std::getline(file, line);
-        int n = sscanf(line.c_str(), "%lf %f %f %f %f %f %f %f", &ftime, &y, &x, &z, &qx, &qy, &qz, &qw);
+        int n = sscanf(line.c_str(), "%lf %f %f %f %f %f %f %f", &ftime, &z, &x, &y, &qx, &qy, &qz, &qw);
 
-        utime = (unsigned long long int) ftime*1000000;
+        utime = (unsigned long long int) ftime;
 
         float tx, ty, tz; tx = qx; ty = qy; tz = qz;
         qx = tz; qy = -tx; qz = -ty;
-
-        x = -x; y = -y;
-
-        // tx = x; ty = y; tz = z; y = -tx; z = -ty; x = tz;
+        tx = x; ty = y; tz = z; y = -tx; z = -ty; x = tz;
 
         std::cout << x << ' ' << y << ' ' << z << ' ' << qx << ' ' << qy << ' ' << qz << ' ' << qw << '\n';
 
@@ -64,6 +62,8 @@ void GroundTruthOdometry::loadTrajectory(const std::string & filename)
         T.setIdentity();
         T.pretranslate(t).rotate(q);
         camera_trajectory[utime] = T;
+
+        i += 1;
     }
 }
 

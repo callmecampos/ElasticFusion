@@ -119,7 +119,7 @@ ElasticFusion::~ElasticFusion()
         }
         else
         {
-            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) / 1000000 << " ";
+            strs << std::setprecision(6) << std::fixed << (double)poseLogTimes.at(i) << " ";
         }
 
         Eigen::Vector3f trans = poseGraph.at(i).second.topRightCorner(3, 1);
@@ -259,7 +259,8 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                                  const Eigen::Matrix4f * inPose,
                                  const float weightMultiplier,
                                  const bool bootstrap,
-                                 const bool imu)
+                                 const bool imu,
+                                 const bool lighthouse)
 {
     TICK("Run");
 
@@ -306,33 +307,31 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
             frameToModel.initRGB(textures[GPUTexture::RGB]);
             TOCK("odomInit");
 
-            Eigen::Vector3f trans = currPose.topRightCorner(3, 1);
-            Eigen::Matrix<float, 3, 3, Eigen::RowMajor> rot = currPose.topLeftCorner(3, 3);
-
             if(bootstrap)
             {
                 assert(inPose);
+                Eigen::Matrix<float, 4, 4, Eigen::RowMajor> ident = Eigen::Matrix<float, 4, 4, Eigen::RowMajor>::Identity();
                 if (imu) {
-                  Eigen::Matrix4f rotationSE3(4,4);
-                  rotationSE3 << (*inPose);
-                  (rotationSE3)(3, 0) = 0;
-                  (rotationSE3)(3, 1) = 0;
-                  (rotationSE3)(3, 2) = 0;
-                  (rotationSE3)(3, 3) = 1;
-                  currPose = rotationSE3;
+                  currPose.topLeftCorner(3, 3) = inPose->topLeftCorner(3, 3);
+                  //currPose.topRightCorner(3, 1) = ident.topRightCorner(3, 1);
+                } else if (lighthouse) {
+                  //currPose.topLeftCorner(3, 3) = ident.topLeftCorner(3, 3);
+                  currPose.topRightCorner(3, 1) = inPose->topRightCorner(3, 1);
                 } else {
-                  Eigen::Matrix4f transSE3(4,4);
-                  transSE3 << (*inPose);
-                  (transSE3)(0, 0) = 1; (transSE3)(1, 0) = 0; (transSE3)(2, 0) = 0;
-                  (transSE3)(0, 1) = 0; (transSE3)(1, 1) = 1; (transSE3)(2, 1) = 0;
-                  (transSE3)(0, 2) = 0; (transSE3)(1, 2) = 0; (transSE3)(2, 2) = 1;
-                  currPose = transSE3;
+                  currPose.topLeftCorner(3, 3) = inPose->topLeftCorner(3, 3);
+                  currPose.topRightCorner(3, 1) = inPose->topRightCorner(3, 1);
                 }
 
-                Eigen::Matrix4f diffPose = inPose->inverse() * currPose;
-
-                currPose = currPose * diffPose;
+                // currPose = lastPose;
             }
+
+            const Eigen::IOFormat HeavyFmt(-2, 0, ", ", ";\n", "[", "]", "[", "]");
+            std::string sep = "\n----------------------------------------\n";
+            std::cout << timestamp << ": \n";
+            std::cout << currPose.format(HeavyFmt) << sep;
+
+            Eigen::Vector3f trans = currPose.topRightCorner(3, 1);
+            Eigen::Matrix<float, 3, 3, Eigen::RowMajor> rot = currPose.topLeftCorner(3, 3);
 
             TICK("odom");
             frameToModel.getIncrementalTransformation(trans,
@@ -341,7 +340,7 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                                                       icpWeight,
                                                       pyramid,
                                                       fastOdom,
-                                                      so3);
+                                                      so3);  // TODO: return number of ICP iterations across pyramids? as n+1th parameter
             TOCK("odom");
 
             trackingOk = !reloc || frameToModel.lastICPError < 1e-04;
@@ -398,8 +397,16 @@ void ElasticFusion::processFrame(const unsigned char * rgb,
                 }
             }
 
+            if (bootstrap && frameToModel.lastICPError >= 1e-04) { // disregard ICP rigid transform
+              rot = inPose->topLeftCorner(3, 3);
+              trans = inPose->topRightCorner(3, 1);
+            }
+
             currPose.topRightCorner(3, 1) = trans;
             currPose.topLeftCorner(3, 3) = rot;
+
+            /* std::cout << timestamp << " (after ICP): \n";
+            std::cout << currPose.format(HeavyFmt) << sep; */
         }
         else
         {
